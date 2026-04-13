@@ -30,7 +30,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-s
 .header-tag{font-size:10px;background:var(--green-bg);color:var(--green);padding:2px 8px;border-radius:10px;font-weight:600}
 .header-tag.offline{background:var(--red-bg);color:var(--red)}
 .header-actions{display:flex;gap:6px;margin-left:auto}
-.ibtn{background:var(--surface2);border:1px solid var(--border);color:var(--text-dim);border-radius:var(--rs);width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;transition:all .15s;flex-shrink:0}
+.ibtn{background:var(--surface2);border:1px solid var(--border);color:var(--text-dim);border-radius:var(--rs);height:30px;padding:0 10px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;transition:all .15s;flex-shrink:0;gap:4px;white-space:nowrap}
 .ibtn:hover{background:var(--border);color:var(--text)}
 .ibtn.active{background:var(--accent);border-color:var(--accent);color:#fff}
 
@@ -610,14 +610,12 @@ function renderApp() {
   const hdr = h('div',{className:'header'},
     h('h1',null,'Jarvis'),
     S.apiKey
-      ? h('span',{className:'header-tag',onClick:openUsageModal,style:{cursor:'pointer'},title:'Click for usage details'},
-          '$'+S.usage.totalCost.toFixed(3)+' · '+S.usage.interactions+' calls')
-      : h('span',{className:'header-tag offline'}, 'No API Key'),
+      ? h('span',{className:'header-tag'}, 'Online')
+      : h('span',{className:'header-tag offline'}, 'No Key'),
     h('div',{className:'header-actions'},
-      h('button',{className:'ibtn',onClick:()=>requestBrief(),title:'Morning Brief'},'☀'),
-      h('button',{className:'ibtn',onClick:importData,title:'Import'},'📥'),
-      h('button',{className:'ibtn',onClick:exportData,title:'Export'},'📤'),
-      h('button',{className:'ibtn',onClick:openSettings,title:'Settings'},'⚙'),
+      h('button',{className:'ibtn',onClick:()=>requestBrief(),title:'Morning Brief'},'Brief'),
+      h('button',{className:'ibtn',onClick:openUsageModal,title:'Usage & Cost'},'Usage'),
+      h('button',{className:'ibtn',onClick:openSettings,title:'Settings'},'Settings'),
     )
   );
   wrap.appendChild(hdr);
@@ -691,7 +689,7 @@ function renderChatMessages() {
   const wrap = h('div',{className:'chat-messages',id:'chat-scroll'});
 
   if (chatMessages.length === 0) {
-    wrap.appendChild(h('div',{className:'msg msg-system'},'Say something or tap ☀ for your morning brief.'));
+    wrap.appendChild(h('div',{className:'msg msg-system'},'Say something or tap Brief for your morning rundown.'));
   }
 
   for (const m of chatMessages) {
