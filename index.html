@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Jarvis">
+<title>Jarvis — Life Manager</title>
+<style>
+:root {
+  --bg: #0a0a0a; --surface: #151515; --surface2: #1e1e1e; --surface3: #262626;
+  --border: #2a2a2a; --border-light: #333;
+  --text: #e8e8e8; --text-dim: #999; --text-faint: #555;
+  --red: #ef4444; --red-bg: rgba(239,68,68,0.1);
+  --yellow: #eab308; --yellow-bg: rgba(234,179,8,0.1);
+  --green: #22c55e; --green-bg: rgba(34,197,94,0.1);
+  --blue: #3b82f6; --blue-bg: rgba(59,130,246,0.1);
+  --purple: #a78bfa; --purple-bg: rgba(167,139,250,0.1);
+  --accent: #3b82f6;
+  --r: 10px; --rs: 6px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;height:100dvh;overflow:hidden;-webkit-font-smoothing:antialiased}
+
+/* === LAYOUT === */
+.app{display:flex;flex-direction:column;height:100dvh}
+.header{display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(10,10,10,0.9);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);z-index:50;gap:10px;flex-shrink:0}
+.header h1{font-size:17px;font-weight:700;letter-spacing:-0.3px;white-space:nowrap}
+.header-tag{font-size:10px;background:var(--green-bg);color:var(--green);padding:2px 8px;border-radius:10px;font-weight:600}
+.header-tag.offline{background:var(--red-bg);color:var(--red)}
+.header-actions{display:flex;gap:6px;margin-left:auto}
+.ibtn{background:var(--surface2);border:1px solid var(--border);color:var(--text-dim);border-radius:var(--rs);width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;transition:all .15s;flex-shrink:0}
+.ibtn:hover{background:var(--border);color:var(--text)}
+.ibtn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* Tabs */
+.tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.tab{flex:1;padding:10px;text-align:center;font-size:13px;font-weight:600;color:var(--text-faint);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.tab.active{color:var(--text);border-bottom-color:var(--accent)}
+.tab .badge{display:inline-block;background:var(--red);color:#fff;font-size:10px;padding:0 6px;border-radius:8px;margin-left:4px;font-weight:700}
+
+/* Panels */
+.panels{flex:1;overflow:hidden;position:relative}
+.panel{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;flex-direction:column}
+.panel.active{display:flex}
+
+/* === TASK BOARD === */
+.board-content{flex:1;overflow-y:auto;padding:12px 16px 16px}
+.filter-bar{display:flex;gap:5px;padding:8px 16px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+.filter-bar::-webkit-scrollbar{display:none}
+.chip{flex-shrink:0;padding:4px 12px;background:var(--surface);border:1px solid var(--border);color:var(--text-dim);border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+.chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+.psection{margin-bottom:14px}
+.pheader{display:flex;align-items:center;gap:7px;padding:6px 0;user-select:none}
+.pdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.plabel{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.pcount{font-size:10px;color:var(--text-faint);background:var(--surface2);padding:1px 7px;border-radius:10px}
+.plimit{font-size:10px;color:var(--red);margin-left:auto;font-weight:600}
+
+.tlist{display:flex;flex-direction:column;gap:3px}
+.titem{display:flex;align-items:flex-start;gap:9px;padding:9px 11px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);transition:all .12s}
+.titem:active{background:var(--surface2)}
+.titem.done{opacity:.35}
+.titem.done .ttitle{text-decoration:line-through}
+.tcheck{width:18px;height:18px;border-radius:50%;border:2px solid var(--text-faint);background:transparent;cursor:pointer;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:10px;color:transparent;transition:all .12s}
+.tcheck:hover{border-color:var(--green)}
+.tcheck.checked{background:var(--green);border-color:var(--green);color:#fff}
+.tbody{flex:1;min-width:0}
+.ttitle{font-size:13px;font-weight:500;word-break:break-word}
+.tmeta{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+.ttag{font-size:10px;padding:1px 7px;border-radius:3px;font-weight:600}
+.tnote{font-size:11px;color:var(--text-dim);margin-top:3px}
+.tactions{display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity .12s}
+.titem:hover .tactions{opacity:1}
+@media(hover:none){.tactions{opacity:1}}
+.tactbtn{background:transparent;border:none;color:var(--text-faint);cursor:pointer;font-size:13px;padding:2px 4px;border-radius:3px}
+.tactbtn:hover{color:var(--text);background:var(--surface2)}
+.tactbtn.del:hover{color:var(--red)}
+.subtasks{margin-top:4px;padding-left:4px}
+.subtask{display:flex;align-items:center;gap:6px;padding:2px 0;font-size:12px;color:var(--text-dim)}
+.subtask-check{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--text-faint);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:8px;color:transparent;flex-shrink:0}
+.subtask-check.checked{background:var(--green);border-color:var(--green);color:#fff}
+.subtask.done{opacity:.4;text-decoration:line-through}
+
+.empty-state{text-align:center;padding:40px 20px;color:var(--text-faint);font-size:13px}
+
+/* === JARVIS CHAT === */
+.chat-messages{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:88%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.55;word-break:break-word}
+.msg-user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.msg-jarvis{align-self:flex-start;background:var(--surface2);color:var(--text);border-bottom-left-radius:4px}
+.msg-system{align-self:center;background:transparent;color:var(--text-faint);font-size:12px;padding:4px 10px;text-align:center}
+.msg-brief{align-self:stretch;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;font-size:13px;line-height:1.6}
+.msg-brief h3{font-size:14px;margin-bottom:8px}
+.msg-brief ul{padding-left:16px;margin:4px 0}
+.msg-brief li{margin:2px 0}
+.msg-brief .section-label{font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-top:10px;margin-bottom:2px}
+.msg .thinking{color:var(--text-faint);font-style:italic;font-size:13px}
+.typing-indicator{align-self:flex-start;padding:10px 16px;color:var(--text-faint);font-size:13px}
+.typing-indicator span{animation:blink 1.4s infinite both}
+.typing-indicator span:nth-child(2){animation-delay:.2s}
+.typing-indicator span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
+
+/* Chat Input */
+.chat-input-area{border-top:1px solid var(--border);padding:10px 12px;padding-bottom:max(10px,env(safe-area-inset-bottom));background:var(--bg);flex-shrink:0}
+.chat-row{display:flex;gap:8px;align-items:flex-end}
+.chat-input{flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:20px;font-size:15px;outline:none;font-family:inherit;resize:none;max-height:120px;min-height:40px;line-height:1.4}
+.chat-input::placeholder{color:var(--text-faint)}
+.chat-input:focus{border-color:var(--accent)}
+.mic-btn{width:40px;height:40px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .15s;flex-shrink:0;background:var(--surface2);color:var(--text-dim)}
+.mic-btn:hover{background:var(--border)}
+.mic-btn.recording{background:var(--red);color:#fff;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+.send-btn{width:40px;height:40px;border-radius:50%;border:none;background:var(--accent);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;transition:all .15s}
+.send-btn:disabled{opacity:.3;cursor:default}
+
+/* === MODAL === */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
+.modal{background:var(--surface);border-radius:16px 16px 0 0;width:100%;max-width:500px;max-height:85dvh;overflow-y:auto;padding:20px;animation:slideUp .2s ease-out}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@media(min-width:600px){.modal{border-radius:16px;align-self:center}.modal-overlay{align-items:center}}
+.modal h2{font-size:16px;font-weight:700;margin-bottom:16px}
+.mfield{margin-bottom:12px}
+.mfield label{display:block;font-size:11px;font-weight:700;color:var(--text-dim);margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px}
+.mfield input,.mfield textarea,.mfield select{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:var(--rs);font-size:14px;font-family:inherit;outline:none}
+.mfield textarea{resize:vertical;min-height:50px}
+.mfield input:focus,.mfield textarea:focus{border-color:var(--accent)}
+.mfield select{appearance:none;cursor:pointer}
+.mactions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+.btn{padding:8px 16px;border-radius:var(--rs);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+.btn-p{background:var(--accent);color:#fff}
+.btn-g{background:transparent;color:var(--text-dim)}
+.btn-g:hover{color:var(--text)}
+.btn-d{background:var(--red);color:#fff}
+
+/* Settings ws */
+.sws-list{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.sws-item{display:flex;align-items:center;gap:7px;padding:7px 9px;background:var(--surface2);border-radius:var(--rs)}
+.sws-item input[type=text]{flex:1;background:transparent;border:none;color:var(--text);font-size:13px;outline:none;font-family:inherit}
+.sws-item input[type=color]{width:26px;height:26px;border:none;border-radius:4px;cursor:pointer;background:transparent}
+.sws-rm{background:transparent;border:none;color:var(--text-faint);cursor:pointer;font-size:15px;padding:2px 5px}
+.sws-rm:hover{color:var(--red)}
+.sws-add{background:var(--surface2);border:1px dashed var(--border);color:var(--text-dim);padding:7px;border-radius:var(--rs);width:100%;cursor:pointer;font-size:12px;font-family:inherit}
+
+/* API key setup */
+.setup-panel{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;flex:1}
+.setup-panel h2{font-size:20px;margin-bottom:8px}
+.setup-panel p{color:var(--text-dim);font-size:14px;margin-bottom:20px;max-width:360px}
+.setup-input{width:100%;max-width:360px;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:12px 16px;border-radius:var(--r);font-size:14px;font-family:inherit;outline:none;text-align:center}
+.setup-input:focus{border-color:var(--accent)}
+.setup-btn{margin-top:12px;padding:12px 32px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:15px;font-weight:600;cursor:pointer}
+.setup-note{font-size:11px;color:var(--text-faint);margin-top:12px;max-width:320px}
+
+/* Desktop layout */
+@media(min-width:700px){
+  .tabs{display:none}
+  .panels{display:flex;flex-direction:row}
+  .panel{position:relative;display:flex!important;flex:1;border-right:1px solid var(--border)}
+  .panel:last-child{border-right:none}
+  .board-content,.chat-messages{padding:12px 20px}
+}
+@media(min-width:700px){
+  .header{padding:10px 20px}
+  .filter-bar{padding:8px 20px}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// =====================================================
+// STATE
+// =====================================================
+const PRIORITIES = [
+  {id:'now',label:'Now',emoji:'🔴',color:'#ef4444',max:3},
+  {id:'soon',label:'Soon',emoji:'🟡',color:'#eab308'},
+  {id:'later',label:'Later',emoji:'⚪',color:'#888'},
+  {id:'blocked',label:'Blocked',emoji:'⏳',color:'#ef4444'},
+  {id:'done',label:'Done',emoji:'✅',color:'#22c55e'},
+];
+const DEFAULT_WS = [
+  {id:'w1',name:'Work',color:'#3b82f6'},
+  {id:'w2',name:'Side Project',color:'#a78bfa'},
+  {id:'w3',name:'Personal',color:'#22c55e'},
+  {id:'w4',name:'Errands',color:'#eab308'},
+  {id:'w5',name:'Ideas',color:'#e8846b'},
+];
+
+let S = {
+  tasks:[],
+  workstreams:[...DEFAULT_WS],
+  history:[], // chat history for context
+  filter:'all',
+  showDone:false,
+  lastBriefDate:'',
+  apiKey:'',
+  usage: {
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    totalCost: 0,
+    interactions: 0,
+    sessionStart: new Date().toISOString(),
+    daily: {}, // { '2026-04-12': { input: N, output: N, cost: N, count: N } }
+  },
+};
+let activeTab = 'jarvis'; // 'board' | 'jarvis'
+let chatMessages = []; // UI messages
+let isTyping = false;
+let modalEl = null;
+
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const today = () => new Date().toISOString().slice(0,10);
+const now_ts = () => new Date().toISOString();
+
+// =====================================================
+// PERSISTENCE
+// =====================================================
+function saveState() {
+  try {
+    const d = JSON.stringify(S);
+    // Save to memory + trigger download if needed
+    window._lastSave = d;
+  } catch(e) {}
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'jarvis-data.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importData() {
+  const inp = document.createElement('input');
+  inp.type='file'; inp.accept='.json';
+  inp.onchange = e => {
+    const f = e.target.files[0]; if(!f) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      try {
+        const d = JSON.parse(ev.target.result);
+        if(d.tasks) {
+          S = {...S, ...d};
+          chatMessages = [];
+          render();
+        }
+      } catch(err) { alert('Invalid file'); }
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+}
+
+// Auto-sync: download JSON every 5 minutes if changes happened
+let _dirty = false;
+function markDirty() { _dirty = true; saveState(); }
+setInterval(() => {
+  if (_dirty) { exportData(); _dirty = false; }
+}, 5 * 60 * 1000);
+
+// =====================================================
+// VOICE — Web Speech API
+// =====================================================
+let recognition = null;
+let isRecording = false;
+
+function initVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;
+  recognition = new SR();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+}
+
+function startRecording(inputEl) {
+  if (!recognition) { alert('Voice not supported in this browser'); return; }
+  isRecording = true;
+  render();
+  recognition.onresult = (e) => {
+    let transcript = '';
+    for (let i = 0; i < e.results.length; i++) {
+      transcript += e.results[i][0].transcript;
+    }
+    if (inputEl) inputEl.value = transcript;
+  };
+  recognition.onend = () => {
+    isRecording = false;
+    render();
+  };
+  recognition.onerror = () => {
+    isRecording = false;
+    render();
+  };
+  recognition.start();
+}
+
+function stopRecording() {
+  if (recognition) recognition.stop();
+  isRecording = false;
+  render();
+}
+
+// =====================================================
+// CLAUDE API
+// =====================================================
+function buildSystemPrompt() {
+  const tasksSummary = buildTaskContext();
+  const wsNames = S.workstreams.map(w => w.name).join(', ');
+  const recentHistory = S.history.slice(-20).map(h => `${h.role}: ${h.text}`).join('\n');
+
+  return `You are Jarvis, Aalap's direct, no-nonsense personal life manager AI. You manage tasks across both work and personal life.
+
+## Your personality
+- Extremely direct and concise. No fluff, no motivational language, no "great job!"
+- Think of yourself as a sharp executive assistant who's been working with Aalap for years
+- When things are overdue or stuck, say so bluntly
+- When asking clarifying questions, be efficient — batch them, don't ask one at a time
+
+## Task system
+Priority tiers: 🔴 Now (max 3), 🟡 Soon, ⚪ Later, ⏳ Blocked, ✅ Done
+Workstreams: ${wsNames}
+Today: ${today()}
+
+## Current tasks
+${tasksSummary}
+
+## Recent conversation context
+${recentHistory || '(new session)'}
+
+## What you can do
+When Aalap tells you something, figure out what needs to happen. You can:
+
+1. **Create tasks** — Parse natural language into structured tasks. Ask clarifying questions if needed (priority, workstream, due date, subtasks). Respond with a JSON action block.
+2. **Update tasks** — Mark done, change priority, add notes, add subtasks
+3. **Morning brief** — When asked, or when the command is "brief", give a sharp daily rundown
+4. **Answer questions** — About tasks, what's overdue, what's blocked, who's waiting on what
+5. **Suggest** — Proactively note if 🔴 Now is full, if things are overdue, or if blocked items need follow-up
+
+## Action format
+When you need to create or modify tasks, include a JSON block in your response wrapped in \`\`\`action tags:
+
+\`\`\`action
+{"type":"create","task":{"title":"...","priority":"soon","workstream":"w1","due":"2026-04-15","person":"","note":"","subtasks":["subtask 1","subtask 2"]}}
+\`\`\`
+
+\`\`\`action
+{"type":"complete","taskId":"abc123"}
+\`\`\`
+
+\`\`\`action
+{"type":"update","taskId":"abc123","changes":{"priority":"now","due":"2026-04-14"}}
+\`\`\`
+
+\`\`\`action
+{"type":"add_subtask","taskId":"abc123","subtask":"New subtask text"}
+\`\`\`
+
+You can include multiple action blocks in one response. Always include a brief text explanation alongside actions.
+
+For workstream IDs, use: ${S.workstreams.map(w => `${w.id}="${w.name}"`).join(', ')}
+
+## Important rules
+- 🔴 Now max is 3. If it's full and Aalap wants to add one, ask what to swap out.
+- When creating tasks, ALWAYS ask if something needs subtasks, a due date, or assignment if the input is vague.
+- Reference past context when relevant — you know what Aalap has been working on.
+- Be proactive: if you notice patterns (overdue items, stale blocked tasks), mention them.
+- For morning briefs, structure: top priorities, overdue items, blocked items needing follow-up, today's agenda items, then a one-liner suggestion.`;
+}
+
+function buildTaskContext() {
+  if (S.tasks.length === 0) return '(no tasks yet)';
+  let out = '';
+  for (const p of PRIORITIES) {
+    const tasks = p.id === 'done'
+      ? S.tasks.filter(t => t.done).slice(0, 5)
+      : S.tasks.filter(t => !t.done && t.priority === p.id);
+    if (tasks.length === 0) continue;
+    out += `\n### ${p.emoji} ${p.label}\n`;
+    for (const t of tasks) {
+      const ws = S.workstreams.find(w => w.id === t.workstream);
+      out += `- [${t.id}] "${t.title}" (${ws?.name||'?'})`;
+      if (t.due) out += ` due:${t.due}`;
+      if (t.person) out += ` @${t.person}`;
+      if (t.blocked_on) out += ` blocked:${t.blocked_on}`;
+      if (t.subtasks?.length) {
+        out += '\n';
+        for (const st of t.subtasks) {
+          out += `  ${st.done ? '☑' : '☐'} ${st.text}\n`;
+        }
+      }
+      out += '\n';
+    }
+  }
+  return out;
+}
+
+async function sendToJarvis(userText) {
+  if (!S.apiKey) return;
+
+  // Add to history
+  S.history.push({ role: 'user', text: userText, ts: now_ts() });
+  chatMessages.push({ role: 'user', text: userText });
+  isTyping = true;
+  render();
+  scrollChat();
+
+  // Build messages for API
+  const messages = [];
+  // Include recent chat for conversational context
+  const recentChat = chatMessages.slice(-20);
+  for (const m of recentChat) {
+    if (m.role === 'user') messages.push({ role: 'user', content: m.text });
+    else if (m.role === 'jarvis') messages.push({ role: 'assistant', content: m.text });
+  }
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': S.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        system: buildSystemPrompt(),
+        messages: messages,
+      }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error(err);
+    }
+
+    const data = await resp.json();
+    const reply = data.content?.[0]?.text || 'No response.';
+
+    // Track usage
+    trackUsage(data.usage);
+
+    // Parse and execute actions
+    const actions = parseActions(reply);
+    for (const a of actions) executeAction(a);
+
+    // Clean reply text (remove action blocks for display)
+    const cleanReply = reply.replace(/```action\n[\s\S]*?```/g, '').trim();
+
+    S.history.push({ role: 'assistant', text: cleanReply, ts: now_ts() });
+    chatMessages.push({ role: 'jarvis', text: cleanReply });
+    isTyping = false;
+    markDirty();
+    render();
+    scrollChat();
+  } catch (err) {
+    isTyping = false;
+    chatMessages.push({ role: 'jarvis', text: `Error: ${err.message}. Check your API key.` });
+    render();
+    scrollChat();
+  }
+}
+
+function trackUsage(usage) {
+  if (!usage) return;
+  const inp = usage.input_tokens || 0;
+  const out = usage.output_tokens || 0;
+  // Sonnet pricing: $3/M input, $15/M output
+  const cost = (inp * 3 / 1e6) + (out * 15 / 1e6);
+  S.usage.totalInputTokens += inp;
+  S.usage.totalOutputTokens += out;
+  S.usage.totalCost += cost;
+  S.usage.interactions++;
+  // Track daily
+  const d = today();
+  if (!S.usage.daily[d]) S.usage.daily[d] = { input:0, output:0, cost:0, count:0 };
+  S.usage.daily[d].input += inp;
+  S.usage.daily[d].output += out;
+  S.usage.daily[d].cost += cost;
+  S.usage.daily[d].count++;
+}
+
+function parseActions(text) {
+  const actions = [];
+  const regex = /```action\n([\s\S]*?)```/g;
+  let m;
+  while ((m = regex.exec(text)) !== null) {
+    try { actions.push(JSON.parse(m[1])); } catch(e) {}
+  }
+  return actions;
+}
+
+function executeAction(action) {
+  if (action.type === 'create') {
+    const t = action.task;
+    const task = {
+      id: uid(),
+      title: t.title || 'Untitled',
+      priority: t.priority || 'soon',
+      workstream: t.workstream || S.workstreams[0]?.id || '',
+      due: t.due || '',
+      person: t.person || '',
+      note: t.note || '',
+      blocked_on: t.blocked_on || '',
+      subtasks: (t.subtasks || []).map(s => typeof s === 'string' ? { text: s, done: false, id: uid() } : s),
+      done: false,
+      created: today(),
+      completed: '',
+    };
+    S.tasks.unshift(task);
+  } else if (action.type === 'complete') {
+    const t = S.tasks.find(x => x.id === action.taskId);
+    if (t) { t.done = true; t.completed = today(); }
+  } else if (action.type === 'update') {
+    const t = S.tasks.find(x => x.id === action.taskId);
+    if (t && action.changes) Object.assign(t, action.changes);
+  } else if (action.type === 'add_subtask') {
+    const t = S.tasks.find(x => x.id === action.taskId);
+    if (t) {
+      if (!t.subtasks) t.subtasks = [];
+      t.subtasks.push({ text: action.subtask, done: false, id: uid() });
+    }
+  }
+}
+
+// =====================================================
+// RENDER
+// =====================================================
+const $ = document.getElementById.bind(document);
+
+function h(tag, attrs, ...children) {
+  const el = document.createElement(tag);
+  if (attrs) for (const [k,v] of Object.entries(attrs)) {
+    if (k === 'className') el.className = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else el.setAttribute(k, v);
+  }
+  for (const c of children.flat()) {
+    if (c == null) continue;
+    el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  }
+  return el;
+}
+
+function render() {
+  const app = $('app');
+  app.innerHTML = '';
+  app.appendChild(renderApp());
+}
+
+function renderApp() {
+  const wrap = h('div', {className:'app'});
+
+  // Header
+  const hdr = h('div',{className:'header'},
+    h('h1',null,'Jarvis'),
+    S.apiKey
+      ? h('span',{className:'header-tag',onClick:openUsageModal,style:{cursor:'pointer'},title:'Click for usage details'},
+          '$'+S.usage.totalCost.toFixed(3)+' · '+S.usage.interactions+' calls')
+      : h('span',{className:'header-tag offline'}, 'No API Key'),
+    h('div',{className:'header-actions'},
+      h('button',{className:'ibtn',onClick:()=>requestBrief(),title:'Morning Brief'},'☀'),
+      h('button',{className:'ibtn',onClick:importData,title:'Import'},'📥'),
+      h('button',{className:'ibtn',onClick:exportData,title:'Export'},'📤'),
+      h('button',{className:'ibtn',onClick:openSettings,title:'Settings'},'⚙'),
+    )
+  );
+  wrap.appendChild(hdr);
+
+  // Tabs (mobile)
+  const tabs = h('div',{className:'tabs'},
+    h('div',{className:'tab'+(activeTab==='jarvis'?' active':''),onClick:()=>{activeTab='jarvis';render()}},
+      'Jarvis',
+    ),
+    h('div',{className:'tab'+(activeTab==='board'?' active':''),onClick:()=>{activeTab='board';render()}},
+      'Tasks',
+      h('span',{className:'badge'}, String(S.tasks.filter(t=>!t.done).length || '')),
+    ),
+  );
+  wrap.appendChild(tabs);
+
+  // Panels
+  const panels = h('div',{className:'panels'});
+
+  // Jarvis Panel
+  const jarvisPanel = h('div',{className:'panel'+(activeTab==='jarvis'?' active':'')});
+  if (!S.apiKey) {
+    jarvisPanel.appendChild(renderSetup());
+  } else {
+    jarvisPanel.appendChild(renderChatMessages());
+    jarvisPanel.appendChild(renderChatInput());
+  }
+  panels.appendChild(jarvisPanel);
+
+  // Board Panel
+  const boardPanel = h('div',{className:'panel'+(activeTab==='board'?' active':'')});
+  boardPanel.appendChild(renderFilterBar());
+  boardPanel.appendChild(renderBoard());
+  panels.appendChild(boardPanel);
+
+  wrap.appendChild(panels);
+  return wrap;
+}
+
+function renderSetup() {
+  const wrap = h('div',{className:'setup-panel'});
+  wrap.appendChild(h('h2',null,'Hey Aalap'));
+  wrap.appendChild(h('p',null,'Enter your Claude API key to activate Jarvis. It stays in memory only — never saved to disk.'));
+  const inp = h('input',{className:'setup-input',type:'password',placeholder:'sk-ant-...',id:'api-input'});
+  inp.addEventListener('keydown', e => { if (e.key==='Enter') connectKey(); });
+  wrap.appendChild(inp);
+  wrap.appendChild(h('button',{className:'setup-btn',onClick:connectKey},'Connect'));
+  wrap.appendChild(h('p',{className:'setup-note'},'Get your key at console.anthropic.com → API Keys. Uses claude-sonnet-4-20250514. You can also skip this and use the task board directly.'));
+  const skipBtn = h('button',{className:'btn btn-g',style:{marginTop:'12px'},onClick:()=>{activeTab='board';render()}},'Skip → use task board only');
+  wrap.appendChild(skipBtn);
+  return wrap;
+}
+
+function connectKey() {
+  const inp = $('api-input');
+  if (!inp) return;
+  const key = inp.value.trim();
+  if (!key) return;
+  S.apiKey = key;
+  // Send welcome
+  chatMessages.push({role:'system',text:'Jarvis connected. Voice and text input ready.'});
+  // Check if brief needed
+  if (S.lastBriefDate !== today() && S.tasks.length > 0) {
+    requestBrief();
+  }
+  render();
+}
+
+function renderChatMessages() {
+  const wrap = h('div',{className:'chat-messages',id:'chat-scroll'});
+
+  if (chatMessages.length === 0) {
+    wrap.appendChild(h('div',{className:'msg msg-system'},'Say something or tap ☀ for your morning brief.'));
+  }
+
+  for (const m of chatMessages) {
+    if (m.role === 'brief') {
+      const div = h('div',{className:'msg msg-brief'});
+      div.innerHTML = m.html;
+      wrap.appendChild(div);
+    } else if (m.role === 'system') {
+      wrap.appendChild(h('div',{className:'msg msg-system'}, m.text));
+    } else {
+      const cls = m.role === 'user' ? 'msg msg-user' : 'msg msg-jarvis';
+      const div = h('div',{className:cls});
+      // Simple markdown-ish rendering for jarvis messages
+      if (m.role === 'jarvis') {
+        div.innerHTML = simpleMarkdown(m.text);
+      } else {
+        div.textContent = m.text;
+      }
+      wrap.appendChild(div);
+    }
+  }
+
+  if (isTyping) {
+    wrap.appendChild(h('div',{className:'typing-indicator'},
+      h('span',null,'●'), h('span',null,'●'), h('span',null,'●')
+    ));
+  }
+
+  return wrap;
+}
+
+function simpleMarkdown(text) {
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+    .replace(/`(.*?)`/g,'<code style="background:#1e1e1e;padding:1px 5px;border-radius:3px;font-size:12px">$1</code>')
+    .replace(/\n- /g,'\n• ')
+    .replace(/\n/g,'<br>');
+}
+
+function renderChatInput() {
+  const wrap = h('div',{className:'chat-input-area'});
+  const row = h('div',{className:'chat-row'});
+
+  const micBtn = h('button',{
+    className:'mic-btn'+(isRecording?' recording':''),
+    onClick: () => {
+      if (isRecording) { stopRecording(); }
+      else {
+        const ta = $('chat-ta');
+        startRecording(ta);
+      }
+    }
+  }, isRecording ? '⏹' : '🎙');
+
+  const ta = h('textarea',{className:'chat-input',id:'chat-ta',placeholder:'Talk to Jarvis...',rows:'1'});
+  ta.addEventListener('input', () => {
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+  });
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  const sendBtn = h('button',{className:'send-btn',onClick:sendMessage},'↑');
+
+  row.appendChild(micBtn);
+  row.appendChild(ta);
+  row.appendChild(sendBtn);
+  wrap.appendChild(row);
+  return wrap;
+}
+
+function sendMessage() {
+  const ta = $('chat-ta');
+  if (!ta) return;
+  const text = ta.value.trim();
+  if (!text) return;
+  ta.value = '';
+  ta.style.height = 'auto';
+  sendToJarvis(text);
+}
+
+function requestBrief() {
+  if (!S.apiKey) { activeTab = 'jarvis'; render(); return; }
+  S.lastBriefDate = today();
+  sendToJarvis('Give me my morning brief. What needs my attention today? Be sharp and concise.');
+}
+
+function scrollChat() {
+  setTimeout(() => {
+    const el = $('chat-scroll');
+    if (el) el.scrollTop = el.scrollHeight;
+  }, 50);
+}
+
+// =====================================================
+// TASK BOARD RENDER
+// =====================================================
+function renderFilterBar() {
+  return h('div',{className:'filter-bar'},
+    h('button',{className:'chip'+(S.filter==='all'?' active':''),onClick:()=>{S.filter='all';render()}},'All'),
+    ...S.workstreams.map(ws =>
+      h('button',{
+        className:'chip'+(S.filter===ws.id?' active':''),
+        style:S.filter===ws.id?{background:ws.color,borderColor:ws.color,color:'#fff'}:{},
+        onClick:()=>{S.filter=ws.id;render()}
+      },ws.name)
+    )
+  );
+}
+
+function renderBoard() {
+  const wrap = h('div',{className:'board-content'});
+  const tasks = S.tasks.filter(t => S.filter==='all' || t.workstream===S.filter);
+
+  for (const p of PRIORITIES) {
+    if (p.id === 'done') {
+      const done = tasks.filter(t => t.done);
+      if (done.length > 0 && !S.showDone) {
+        wrap.appendChild(h('div',{className:'psection'},
+          h('div',{className:'pheader',onClick:()=>{S.showDone=true;render()}},
+            h('span',{className:'pdot',style:{background:p.color}}),
+            h('span',{className:'plabel',style:{color:p.color}},p.emoji+' '+p.label),
+            h('span',{className:'pcount'},String(done.length)),
+            h('span',{style:{marginLeft:'auto',fontSize:'11px',color:'#444'}},'show')
+          )
+        ));
+      } else if (done.length > 0) {
+        wrap.appendChild(h('div',{className:'psection'},
+          h('div',{className:'pheader',onClick:()=>{S.showDone=false;render()}},
+            h('span',{className:'pdot',style:{background:p.color}}),
+            h('span',{className:'plabel',style:{color:p.color}},p.emoji+' '+p.label),
+            h('span',{className:'pcount'},String(done.length)),
+          ),
+          h('div',{className:'tlist'},...done.slice(0,10).map(renderTask))
+        ));
+      }
+      continue;
+    }
+
+    const ptasks = tasks.filter(t => !t.done && t.priority === p.id);
+    const sec = h('div',{className:'psection'},
+      h('div',{className:'pheader'},
+        h('span',{className:'pdot',style:{background:p.color}}),
+        h('span',{className:'plabel',style:{color:p.color}},p.emoji+' '+p.label),
+        h('span',{className:'pcount'},String(ptasks.length)),
+        p.max && ptasks.length >= p.max ? h('span',{className:'plimit'},'max '+p.max) : null,
+      ),
+      ptasks.length > 0
+        ? h('div',{className:'tlist'},...ptasks.map(renderTask))
+        : null,
+    );
+    wrap.appendChild(sec);
+  }
+
+  if (tasks.filter(t=>!t.done).length === 0) {
+    wrap.appendChild(h('div',{className:'empty-state'},'No tasks. Tell Jarvis what you need to do.'));
+  }
+
+  return wrap;
+}
+
+function renderTask(task) {
+  const ws = S.workstreams.find(w => w.id === task.workstream);
+  const isOverdue = task.due && task.due < today() && !task.done;
+
+  const subtasksEl = task.subtasks?.length ? h('div',{className:'subtasks'},
+    ...task.subtasks.map(st =>
+      h('div',{className:'subtask'+(st.done?' done':'')},
+        h('button',{className:'subtask-check'+(st.done?' checked':''),onClick:()=>{
+          st.done = !st.done; markDirty(); render();
+        }}, st.done?'✓':''),
+        h('span',null,st.text),
+      )
+    )
+  ) : null;
+
+  return h('div',{className:'titem'+(task.done?' done':'')},
+    h('button',{className:'tcheck'+(task.done?' checked':''),onClick:()=>{
+      task.done=!task.done; task.completed=task.done?today():''; markDirty(); render();
+    }}, task.done?'✓':''),
+    h('div',{className:'tbody'},
+      h('div',{className:'ttitle'}, task.title),
+      h('div',{className:'tmeta'},
+        ws ? h('span',{className:'ttag',style:{background:ws.color+'18',color:ws.color}},ws.name) : null,
+        task.due ? h('span',{className:'ttag',style:{background:isOverdue?'rgba(239,68,68,.1)':'rgba(234,179,8,.1)',color:isOverdue?'#ef4444':'#eab308'}},(isOverdue?'⚠ ':'')+task.due) : null,
+        task.person ? h('span',{className:'ttag',style:{background:'rgba(136,136,136,.08)',color:'#888'}},'@'+task.person) : null,
+        task.priority==='blocked'&&task.blocked_on ? h('span',{className:'ttag',style:{background:'rgba(239,68,68,.1)',color:'#ef4444'}},'⏳ '+task.blocked_on) : null,
+      ),
+      task.note ? h('div',{className:'tnote'},task.note) : null,
+      subtasksEl,
+    ),
+    h('div',{className:'tactions'},
+      h('button',{className:'tactbtn',onClick:()=>openEditModal(task.id),title:'Edit'},'✏'),
+      h('button',{className:'tactbtn del',onClick:()=>{S.tasks=S.tasks.filter(t=>t.id!==task.id);markDirty();render()},title:'Delete'},'✕'),
+    )
+  );
+}
+
+// =====================================================
+// MODALS
+// =====================================================
+function closeModal() { if(modalEl){modalEl.remove();modalEl=null;} }
+
+function showModal(content) {
+  closeModal();
+  modalEl = h('div',{className:'modal-overlay',onClick:e=>{if(e.target===modalEl)closeModal()}},
+    h('div',{className:'modal'},content)
+  );
+  document.body.appendChild(modalEl);
+}
+
+function openEditModal(id) {
+  const task = S.tasks.find(t=>t.id===id);
+  if(!task) return;
+
+  const content = h('div',null,
+    h('h2',null,'Edit Task'),
+    h('div',{className:'mfield'},h('label',null,'Title'),h('input',{type:'text',value:task.title,id:'ed-title'})),
+    h('div',{className:'mfield'},h('label',null,'Priority'),
+      h('select',{id:'ed-pri'},...PRIORITIES.filter(p=>p.id!=='done').map(p=>
+        h('option',{value:p.id,...(task.priority===p.id?{selected:true}:{})},p.emoji+' '+p.label)
+      ))
+    ),
+    h('div',{className:'mfield'},h('label',null,'Workstream'),
+      h('select',{id:'ed-ws'},...S.workstreams.map(ws=>
+        h('option',{value:ws.id,...(task.workstream===ws.id?{selected:true}:{})},ws.name)
+      ))
+    ),
+    h('div',{className:'mfield'},h('label',null,'Due Date'),h('input',{type:'date',value:task.due||'',id:'ed-due'})),
+    h('div',{className:'mfield'},h('label',null,'Person'),h('input',{type:'text',value:task.person||'',id:'ed-person',placeholder:'Who is this for?'})),
+    h('div',{className:'mfield'},h('label',null,'Notes'),h('textarea',{id:'ed-note'},task.note||'')),
+    h('div',{className:'mfield'},h('label',null,'Blocked On (if blocked)'),h('input',{type:'text',value:task.blocked_on||'',id:'ed-blocked',placeholder:'Who/what is blocking?'})),
+    h('div',{className:'mactions'},
+      h('button',{className:'btn btn-d',onClick:()=>{S.tasks=S.tasks.filter(t=>t.id!==id);markDirty();closeModal();render()}},'Delete'),
+      h('span',{style:{flex:'1'}}),
+      h('button',{className:'btn btn-g',onClick:closeModal},'Cancel'),
+      h('button',{className:'btn btn-p',onClick:()=>{
+        task.title=$('ed-title').value.trim()||task.title;
+        task.priority=$('ed-pri').value;
+        task.workstream=$('ed-ws').value;
+        task.due=$('ed-due').value;
+        task.person=$('ed-person').value.trim();
+        task.note=$('ed-note').value.trim();
+        task.blocked_on=$('ed-blocked').value.trim();
+        markDirty(); closeModal(); render();
+      }},'Save'),
+    )
+  );
+  showModal(content);
+}
+
+function openUsageModal() {
+  const u = S.usage;
+  const todayData = u.daily[today()] || { input:0, output:0, cost:0, count:0 };
+  const days = Object.keys(u.daily).sort().reverse().slice(0, 14);
+  // Estimate monthly from daily average
+  const dayCount = Math.max(days.length, 1);
+  const avgDaily = u.totalCost / dayCount;
+  const estMonthly = avgDaily * 30;
+
+  const content = h('div', null,
+    h('h2', null, 'Usage & Cost'),
+
+    // Today
+    h('div',{style:{background:'var(--surface2)',padding:'12px',borderRadius:'var(--r)',marginBottom:'12px'}},
+      h('div',{style:{fontSize:'11px',fontWeight:'700',color:'var(--text-dim)',textTransform:'uppercase',letterSpacing:'.3px',marginBottom:'6px'}},'Today'),
+      h('div',{style:{display:'flex',justifyContent:'space-between'}},
+        h('span',null,todayData.count+' interactions'),
+        h('span',{style:{fontWeight:'700',color:'var(--green)'}},'$'+todayData.cost.toFixed(4)),
+      ),
+      h('div',{style:{fontSize:'11px',color:'var(--text-faint)',marginTop:'4px'}},
+        todayData.input.toLocaleString()+' in / '+todayData.output.toLocaleString()+' out tokens'),
+    ),
+
+    // All time
+    h('div',{style:{background:'var(--surface2)',padding:'12px',borderRadius:'var(--r)',marginBottom:'12px'}},
+      h('div',{style:{fontSize:'11px',fontWeight:'700',color:'var(--text-dim)',textTransform:'uppercase',letterSpacing:'.3px',marginBottom:'6px'}},'All Time'),
+      h('div',{style:{display:'flex',justifyContent:'space-between'}},
+        h('span',null,u.interactions+' interactions'),
+        h('span',{style:{fontWeight:'700',color:'var(--green)'}},'$'+u.totalCost.toFixed(4)),
+      ),
+      h('div',{style:{fontSize:'11px',color:'var(--text-faint)',marginTop:'4px'}},
+        u.totalInputTokens.toLocaleString()+' in / '+u.totalOutputTokens.toLocaleString()+' out tokens'),
+    ),
+
+    // Estimate
+    h('div',{style:{background:'var(--surface2)',padding:'12px',borderRadius:'var(--r)',marginBottom:'12px'}},
+      h('div',{style:{fontSize:'11px',fontWeight:'700',color:'var(--text-dim)',textTransform:'uppercase',letterSpacing:'.3px',marginBottom:'6px'}},'Estimated Monthly'),
+      h('div',{style:{fontSize:'18px',fontWeight:'700',color:'var(--accent)'}},'~$'+estMonthly.toFixed(2)),
+      h('div',{style:{fontSize:'11px',color:'var(--text-faint)',marginTop:'2px'}},
+        'Based on '+dayCount+' day'+(dayCount>1?'s':'')+' of usage'),
+    ),
+
+    // Daily breakdown
+    days.length > 0 ? h('div', null,
+      h('div',{style:{fontSize:'11px',fontWeight:'700',color:'var(--text-dim)',textTransform:'uppercase',letterSpacing:'.3px',marginBottom:'6px',marginTop:'4px'}},'Daily Breakdown'),
+      ...days.map(d => {
+        const dd = u.daily[d];
+        return h('div',{style:{display:'flex',justifyContent:'space-between',padding:'4px 0',fontSize:'13px',borderBottom:'1px solid var(--border)'}},
+          h('span',{style:{color:'var(--text-dim)'}},d),
+          h('span',null,dd.count+' calls'),
+          h('span',{style:{fontWeight:'600'}},'$'+dd.cost.toFixed(4)),
+        );
+      })
+    ) : null,
+
+    // Reset
+    h('div',{className:'mactions',style:{marginTop:'16px'}},
+      h('button',{className:'btn btn-g',style:{border:'1px solid var(--border)'},onClick:()=>{
+        if(confirm('Reset all usage stats?')){
+          S.usage={totalInputTokens:0,totalOutputTokens:0,totalCost:0,interactions:0,sessionStart:new Date().toISOString(),daily:{}};
+          markDirty(); closeModal(); render();
+        }
+      }},'Reset Stats'),
+      h('span',{style:{flex:'1'}}),
+      h('button',{className:'btn btn-p',onClick:closeModal},'Done'),
+    )
+  );
+  showModal(content);
+}
+
+function openSettings() {
+  let tmpWs = S.workstreams.map(w=>({...w}));
+  let tmpKey = S.apiKey;
+
+  function renderS() {
+    const content = h('div',null,
+      h('h2',null,'Settings'),
+
+      h('div',{className:'mfield'},
+        h('label',null,'Claude API Key'),
+        h('input',{type:'password',value:tmpKey,id:'s-key',placeholder:'sk-ant-...'}),
+      ),
+
+      h('h2',{style:{marginTop:'16px',fontSize:'14px'}},'Workstreams'),
+      h('div',{className:'sws-list'},
+        ...tmpWs.map((ws,i) =>
+          h('div',{className:'sws-item'},
+            h('input',{type:'color',value:ws.color,onChange:e=>{tmpWs[i].color=e.target.value}}),
+            h('input',{type:'text',value:ws.name,onChange:e=>{tmpWs[i].name=e.target.value}}),
+            h('button',{className:'sws-rm',onClick:()=>{tmpWs.splice(i,1);closeModal();showModal(renderS())}},'×'),
+          )
+        )
+      ),
+      h('button',{className:'sws-add',onClick:()=>{tmpWs.push({id:uid(),name:'New',color:'#888'});closeModal();showModal(renderS())}},'+ Add Workstream'),
+
+      h('h2',{style:{marginTop:'16px',fontSize:'14px'}},'Data'),
+      h('div',{style:{display:'flex',gap:'8px',marginTop:'6px'}},
+        h('button',{className:'btn btn-g',style:{border:'1px solid #2a2a2a'},onClick:()=>{closeModal();importData()}},'📥 Import'),
+        h('button',{className:'btn btn-g',style:{border:'1px solid #2a2a2a'},onClick:()=>{closeModal();exportData()}},'📤 Export'),
+      ),
+
+      h('div',{className:'mactions',style:{marginTop:'16px'}},
+        h('button',{className:'btn btn-g',onClick:closeModal},'Cancel'),
+        h('button',{className:'btn btn-p',onClick:()=>{
+          S.workstreams=tmpWs.filter(w=>w.name.trim());
+          const newKey = $('s-key')?.value?.trim();
+          if (newKey) S.apiKey = newKey;
+          markDirty(); closeModal(); render();
+        }},'Save'),
+      )
+    );
+    return content;
+  }
+  showModal(renderS());
+}
+
+// =====================================================
+// INIT
+// =====================================================
+initVoice();
+render();
+</script>
+</body>
+</html>
