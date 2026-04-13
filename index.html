@@ -438,7 +438,7 @@ function buildTaskContext() {
       if (t.subtasks?.length) {
         out += '\n';
         for (const st of t.subtasks) {
-          out += `  ${st.done ? '☑' : '☐'} ${st.text}\n`;
+          out += `  ${st.done ? '☑' : '☐'} ${st.text || st.name || st.title || ''}\n`;
         }
       }
       out += '\n';
@@ -556,7 +556,10 @@ function executeAction(action) {
       person: t.person || '',
       note: t.note || '',
       blocked_on: t.blocked_on || '',
-      subtasks: (t.subtasks || []).map(s => typeof s === 'string' ? { text: s, done: false, id: uid() } : s),
+      subtasks: (t.subtasks || []).map(s => {
+        if (typeof s === 'string') return { text: s, done: false, id: uid() };
+        return { text: s.text || s.name || s.title || String(s), done: !!s.done, id: s.id || uid() };
+      }),
       done: false,
       created: today(),
       completed: '',
@@ -866,7 +869,7 @@ function renderTask(task) {
         h('button',{className:'subtask-check'+(st.done?' checked':''),onClick:()=>{
           st.done = !st.done; markDirty(); render();
         }}, st.done?'✓':''),
-        h('span',null,st.text),
+        h('span',null,st.text || st.name || st.title || '(untitled)'),
       )
     )
   ) : null;
