@@ -154,6 +154,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-s
 .setup-btn{margin-top:12px;padding:12px 32px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:15px;font-weight:600;cursor:pointer}
 .setup-note{font-size:11px;color:var(--text-faint);margin-top:12px;max-width:320px}
 
+/* Lock screen */
+.lock-screen{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.lock-screen h1{font-size:28px;margin-bottom:4px;letter-spacing:-0.5px}
+.lock-screen .lock-sub{color:var(--text-dim);font-size:14px;margin-bottom:30px}
+.pin-dots{display:flex;gap:14px;margin-bottom:24px}
+.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--border-light);transition:all .15s}
+.pin-dot.filled{background:var(--accent);border-color:var(--accent)}
+.pin-dot.error{border-color:var(--red);background:var(--red)}
+.pin-pad{display:grid;grid-template-columns:repeat(3,72px);gap:10px;justify-content:center}
+.pin-key{width:72px;height:56px;border-radius:var(--r);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:22px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;font-family:inherit}
+.pin-key:active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.pin-key.fn{font-size:13px;color:var(--text-dim);font-weight:500}
+.lock-skip{margin-top:20px;color:var(--text-faint);font-size:12px;cursor:pointer;background:transparent;border:none;font-family:inherit}
+.lock-skip:hover{color:var(--text-dim)}
+
 /* Desktop layout */
 @media(min-width:700px){
   .tabs{display:none}
@@ -216,15 +231,50 @@ const today = () => new Date().toISOString().slice(0,10);
 const now_ts = () => new Date().toISOString();
 
 // =====================================================
-// PERSISTENCE
+// PERSISTENCE (localStorage)
 // =====================================================
+const LS_STATE = 'jarvis_state';
+const LS_PIN = 'jarvis_pin_hash';
+let isUnlocked = false;
+
 function saveState() {
   try {
-    const d = JSON.stringify(S);
-    // Save to memory + trigger download if needed
-    window._lastSave = d;
+    localStorage.setItem(LS_STATE, JSON.stringify(S));
   } catch(e) {}
 }
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(LS_STATE);
+    if (raw) {
+      const d = JSON.parse(raw);
+      S = {...S, ...d};
+      // Ensure usage object exists (migration)
+      if (!S.usage) S.usage = {totalInputTokens:0,totalOutputTokens:0,totalCost:0,interactions:0,sessionStart:new Date().toISOString(),daily:{}};
+    }
+  } catch(e) {}
+}
+
+// Simple hash for PIN (not crypto-grade, but fine for a client-side lock)
+async function hashPin(pin) {
+  const enc = new TextEncoder().encode(pin + 'jarvis-salt-2026');
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function hasPinSet() { return !!localStorage.getItem(LS_PIN); }
+
+async function setPinCode(pin) {
+  const h = await hashPin(pin);
+  localStorage.setItem(LS_PIN, h);
+}
+
+async function verifyPin(pin) {
+  const h = await hashPin(pin);
+  return h === localStorage.getItem(LS_PIN);
+}
+
+function removePinCode() { localStorage.removeItem(LS_PIN); }
 
 function exportData() {
   const blob = new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
@@ -247,6 +297,7 @@ function importData() {
         if(d.tasks) {
           S = {...S, ...d};
           chatMessages = [];
+          saveState();
           render();
         }
       } catch(err) { alert('Invalid file'); }
@@ -256,12 +307,8 @@ function importData() {
   inp.click();
 }
 
-// Auto-sync: download JSON every 5 minutes if changes happened
 let _dirty = false;
 function markDirty() { _dirty = true; saveState(); }
-setInterval(() => {
-  if (_dirty) { exportData(); _dirty = false; }
-}, 5 * 60 * 1000);
 
 // =====================================================
 // VOICE — Web Speech API
@@ -613,7 +660,7 @@ function renderApp() {
 function renderSetup() {
   const wrap = h('div',{className:'setup-panel'});
   wrap.appendChild(h('h2',null,'Hey Aalap'));
-  wrap.appendChild(h('p',null,'Enter your Claude API key to activate Jarvis. It stays in memory only — never saved to disk.'));
+  wrap.appendChild(h('p',null,'Enter your Claude API key to activate Jarvis. It\'s saved locally in your browser so you only enter it once.'));
   const inp = h('input',{className:'setup-input',type:'password',placeholder:'sk-ant-...',id:'api-input'});
   inp.addEventListener('keydown', e => { if (e.key==='Enter') connectKey(); });
   wrap.appendChild(inp);
@@ -630,6 +677,7 @@ function connectKey() {
   const key = inp.value.trim();
   if (!key) return;
   S.apiKey = key;
+  saveState();
   // Send welcome
   chatMessages.push({role:'system',text:'Jarvis connected. Voice and text input ready.'});
   // Check if brief needed
@@ -995,6 +1043,17 @@ function openSettings() {
       ),
       h('button',{className:'sws-add',onClick:()=>{tmpWs.push({id:uid(),name:'New',color:'#888'});closeModal();showModal(renderS())}},'+ Add Workstream'),
 
+      h('h2',{style:{marginTop:'16px',fontSize:'14px'}},'Security'),
+      h('div',{style:{display:'flex',gap:'8px',marginTop:'6px'}},
+        hasPinSet()
+          ? h('button',{className:'btn btn-g',style:{border:'1px solid #2a2a2a'},onClick:()=>{
+              if(confirm('Remove PIN lock?')){ removePinCode(); closeModal(); render(); }
+            }},'🔓 Remove PIN')
+          : h('button',{className:'btn btn-g',style:{border:'1px solid #2a2a2a'},onClick:()=>{
+              closeModal(); _pinMode='set-new'; _pinEntry=''; _pinFirst=''; renderLockScreen();
+            }},'🔒 Set PIN Lock'),
+      ),
+
       h('h2',{style:{marginTop:'16px',fontSize:'14px'}},'Data'),
       h('div',{style:{display:'flex',gap:'8px',marginTop:'6px'}},
         h('button',{className:'btn btn-g',style:{border:'1px solid #2a2a2a'},onClick:()=>{closeModal();importData()}},'📥 Import'),
@@ -1007,7 +1066,7 @@ function openSettings() {
           S.workstreams=tmpWs.filter(w=>w.name.trim());
           const newKey = $('s-key')?.value?.trim();
           if (newKey) S.apiKey = newKey;
-          markDirty(); closeModal(); render();
+          saveState(); markDirty(); closeModal(); render();
         }},'Save'),
       )
     );
@@ -1017,10 +1076,92 @@ function openSettings() {
 }
 
 // =====================================================
+// LOCK SCREEN
+// =====================================================
+let _pinEntry = '';
+let _pinError = false;
+let _pinMode = 'unlock'; // 'unlock' | 'set-new' | 'confirm-new'
+let _pinFirst = '';
+
+function renderLockScreen() {
+  const root = $('app');
+  root.innerHTML = '';
+  const screen = h('div',{className:'lock-screen'});
+  screen.appendChild(h('h1',null,'Jarvis'));
+  const subtitle = _pinMode === 'unlock' ? 'Enter PIN to unlock' :
+    _pinMode === 'set-new' ? 'Choose a 4-digit PIN' : 'Confirm your PIN';
+  screen.appendChild(h('div',{className:'lock-sub'},subtitle));
+
+  // PIN dots
+  const dots = h('div',{className:'pin-dots'});
+  for (let i = 0; i < 4; i++) {
+    const cls = 'pin-dot' + (i < _pinEntry.length ? (_pinError ? ' error' : ' filled') : '');
+    dots.appendChild(h('div',{className:cls}));
+  }
+  screen.appendChild(dots);
+
+  // Keypad
+  const pad = h('div',{className:'pin-pad'});
+  const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+  keys.forEach(k => {
+    if (k === '') { pad.appendChild(h('div')); return; }
+    const btn = h('button',{className:'pin-key'+(k==='⌫'?' fn':''),onClick:()=>handlePinKey(k)},k);
+    pad.appendChild(btn);
+  });
+  screen.appendChild(pad);
+
+  if (_pinMode === 'unlock') {
+    screen.appendChild(h('button',{className:'lock-skip',onClick:()=>{
+      if(confirm('Remove PIN and unlock? Your data stays, but anyone can access the app.')){
+        removePinCode(); isUnlocked=true; render();
+      }
+    }},'Forgot PIN? Remove it'));
+  }
+  if (_pinMode !== 'unlock') {
+    screen.appendChild(h('button',{className:'lock-skip',onClick:()=>{_pinMode='unlock';_pinEntry='';closeModal();render()}},'Cancel'));
+  }
+  root.appendChild(screen);
+}
+
+async function handlePinKey(k) {
+  if (_pinError) { _pinEntry = ''; _pinError = false; }
+  if (k === '⌫') { _pinEntry = _pinEntry.slice(0,-1); renderLockScreen(); return; }
+  if (_pinEntry.length >= 4) return;
+  _pinEntry += k;
+  renderLockScreen();
+  if (_pinEntry.length === 4) {
+    if (_pinMode === 'unlock') {
+      const ok = await verifyPin(_pinEntry);
+      if (ok) { isUnlocked = true; _pinEntry = ''; render(); }
+      else { _pinError = true; renderLockScreen(); setTimeout(()=>{_pinEntry='';_pinError=false;renderLockScreen()},600); }
+    } else if (_pinMode === 'set-new') {
+      _pinFirst = _pinEntry; _pinEntry = ''; _pinMode = 'confirm-new'; renderLockScreen();
+    } else if (_pinMode === 'confirm-new') {
+      if (_pinEntry === _pinFirst) {
+        await setPinCode(_pinEntry);
+        _pinEntry = ''; _pinMode = 'unlock'; isUnlocked = true;
+        closeModal(); render();
+        chatMessages.push({role:'system',text:'PIN lock enabled. App will require PIN on next visit.'});
+        render();
+      } else {
+        _pinError = true; renderLockScreen();
+        setTimeout(()=>{_pinEntry='';_pinError=false;_pinMode='set-new';_pinFirst='';renderLockScreen()},600);
+      }
+    }
+  }
+}
+
+// =====================================================
 // INIT
 // =====================================================
+loadState();
 initVoice();
-render();
+if (hasPinSet() && !isUnlocked) {
+  renderLockScreen();
+} else {
+  isUnlocked = true;
+  render();
+}
 </script>
 </body>
 </html>
